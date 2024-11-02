@@ -63,4 +63,25 @@ class UserResource extends Resource
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
+
+    public static function canViewAny(): bool
+{
+    return auth()->user()->hasRole('Admin');
+}
+
+public static function canCreate(): bool
+{
+    return auth()->user()->hasRole('Admin');
+}
+
+public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+{
+    return auth()->user()->hasRole('Admin');
+}
+
+public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+{
+    return auth()->user()->hasRole('Admin');
+}
+
 }

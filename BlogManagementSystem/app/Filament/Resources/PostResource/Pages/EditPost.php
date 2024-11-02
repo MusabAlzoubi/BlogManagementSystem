@@ -3,8 +3,11 @@
 namespace App\Filament\Resources\PostResource\Pages;
 
 use App\Filament\Resources\PostResource;
+use App\Models\User;
+use App\Notifications\PostPendingApproval;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Notification;
 
 class EditPost extends EditRecord
 {
@@ -16,19 +19,29 @@ class EditPost extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
     protected function mutateFormDataBeforeSave(array $data): array
-{
-    if ($this->record->needsApproval() && $data['status'] === 'published') {
-        $data['status'] = 'pending';
+    {
+        if ($this->record->needsApproval() && !auth()->user()->hasRole('Admin') && isset($data['status']) && $data['status'] === 'published') {
+            $data['status'] = 'pending';
+        }
+
+        return $data;
     }
 
-    return $data;
-}
-protected function afterSave(): void
+  
+    protected function afterSave(): void
 {
     if ($this->record->needsApproval() && $this->record->status === 'pending') {
-        $admins = \App\Models\User::role('Admin')->get();
-        \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\PostPendingApproval($this->record));
+        $admins = User::role('Admin')->get();
+        if ($admins->isNotEmpty()) {
+            Notification::send($admins, new PostPendingApproval($this->record));
+        }
+    }
+    if ($this->record->wasChanged('status') && $this->record->status === 'published') {
+        $this->record->author->notify(new \App\Notifications\PostApprovalStatus($this->record, 'approved'));
+    } elseif ($this->record->wasChanged('status') && $this->record->status === 'rejected') {
+        $this->record->author->notify(new \App\Notifications\PostApprovalStatus($this->record, 'rejected'));
     }
 }
 
